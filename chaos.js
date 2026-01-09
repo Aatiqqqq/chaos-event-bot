@@ -5,28 +5,38 @@ const {
 } = require("discord.js");
 
 const fs = require("fs");
+const path = require("path");
 const log = require("./logger");
 const { CHAOS_CHANNEL_ID } = require("./config");
 
 // ================= STORAGE =================
-const DATA_DIR = "./data";
-const COIN_FILE = "./data/chaosCoins.json";
+const DATA_DIR = path.join(process.cwd(), "data");
+const COIN_FILE = path.join(DATA_DIR, "chaosCoins.json");
 
-// Ensure folder + file exist
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR);
+// Ensure folder + file exist (ALWAYS safe)
+function ensureStorage() {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+
+  if (!fs.existsSync(COIN_FILE)) {
+    fs.writeFileSync(COIN_FILE, JSON.stringify({}, null, 2));
+  }
 }
 
-if (!fs.existsSync(COIN_FILE)) {
-  fs.writeFileSync(COIN_FILE, JSON.stringify({}, null, 2));
+// Load coins safely
+function loadCoins() {
+  ensureStorage();
+  return JSON.parse(fs.readFileSync(COIN_FILE, "utf8"));
 }
 
-// Load coins
-let coins = JSON.parse(fs.readFileSync(COIN_FILE, "utf8"));
-
-function saveCoins() {
+// Save coins safely
+function saveCoins(coins) {
+  ensureStorage();
   fs.writeFileSync(COIN_FILE, JSON.stringify(coins, null, 2));
 }
+
+let coins = loadCoins();
 
 function getCoins(id) {
   return coins[id] || 0;
@@ -34,13 +44,13 @@ function getCoins(id) {
 
 function addCoins(id, amount) {
   coins[id] = getCoins(id) + amount;
-  saveCoins();
+  saveCoins(coins);
 }
 
 function removeCoins(id, amount) {
   if (getCoins(id) < amount) return false;
   coins[id] -= amount;
-  saveCoins();
+  saveCoins(coins);
   return true;
 }
 
@@ -55,11 +65,10 @@ const SHOP = {
 module.exports = async function chaosHandler(client, interaction) {
   // ---------- SLASH COMMANDS ----------
   if (interaction.isChatInputCommand()) {
-    // /chaos
     if (interaction.commandName === "chaos") {
       if (interaction.channelId !== CHAOS_CHANNEL_ID) {
         return interaction.reply({
-          content: "❌ Use this command only in **#chaos-events**",
+          content: "❌ Use this only in #chaos-events",
           ephemeral: true
         });
       }
@@ -80,18 +89,13 @@ module.exports = async function chaosHandler(client, interaction) {
       );
 
       await interaction.reply({
-        content: "😈 **CHAOS PANEL**\nEarn chaos coins:",
+        content: "😈 **CHAOS PANEL**",
         components: [row]
       });
 
-      return log(
-        client,
-        "CHAOS PANEL",
-        `${interaction.user.tag} opened chaos panel`
-      );
+      return log(client, "CHAOS PANEL", `${interaction.user.tag} opened panel`);
     }
 
-    // /profile
     if (interaction.commandName === "profile") {
       return interaction.reply({
         ephemeral: true,
@@ -102,7 +106,6 @@ module.exports = async function chaosHandler(client, interaction) {
       });
     }
 
-    // /shop
     if (interaction.commandName === "shop") {
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -122,67 +125,62 @@ module.exports = async function chaosHandler(client, interaction) {
       return interaction.reply({
         ephemeral: true,
         content:
-          `🛒 **CHAOS SHOP**\n\n` +
-          `💰 Your coins: **${getCoins(interaction.user.id)}**`,
+          `🛒 **CHAOS SHOP**\n💰 Coins: **${getCoins(interaction.user.id)}**`,
         components: [row]
       });
     }
   }
 
   // ---------- BUTTONS ----------
- // ---------- BUTTONS ----------
-// ---------- BUTTONS ----------
-if (interaction.isButton()) {
-  await interaction.deferUpdate(); // ✅ correct for message buttons
+  if (!interaction.isButton()) return;
+
+  await interaction.deferUpdate();
 
   const userId = interaction.user.id;
 
-  // ===== EARN COINS =====
   let reward = 0;
   let action = "";
 
   if (interaction.customId === "chaos_lucky") {
     reward = Math.floor(Math.random() * 50) + 10;
-    action = "Lucky Drop 🎁";
+    action = "Lucky Drop";
   }
 
   if (interaction.customId === "chaos_duel") {
     reward = Math.floor(Math.random() * 40) + 20;
-    action = "Duel ⚔️";
+    action = "Duel";
   }
 
   if (interaction.customId === "chaos_guess") {
     reward = Math.floor(Math.random() * 30) + 5;
-    action = "Guess 🎯";
+    action = "Guess";
   }
 
   if (reward > 0) {
     addCoins(userId, reward);
 
     await interaction.followUp({
-      content: `😈 ${interaction.user} won **${reward} chaos coins**!`,
+      content: `😈 You won **${reward} chaos coins**!`,
       ephemeral: true
     });
 
-    log(
+    return log(
       client,
       "COINS EARNED",
-      `${interaction.user.tag} earned ${reward} coins (${action})`
+      `${interaction.user.tag} +${reward} (${action})`
     );
-    return;
   }
 
-  // ===== SHOP BUY =====
   const buyMap = {
     buy_boost: "boost",
     buy_vip: "vip",
     buy_mystery: "mystery"
   };
 
-  const itemKey = buyMap[interaction.customId];
-  if (!itemKey) return;
+  const key = buyMap[interaction.customId];
+  if (!key) return;
 
-  const item = SHOP[itemKey];
+  const item = SHOP[key];
 
   if (!removeCoins(userId, item.price)) {
     return interaction.followUp({
@@ -199,6 +197,6 @@ if (interaction.isButton()) {
   log(
     client,
     "SHOP PURCHASE",
-    `${interaction.user.tag} bought ${item.name} (${item.price})`
+    `${interaction.user.tag} bought ${item.name}`
   );
-}
+};
