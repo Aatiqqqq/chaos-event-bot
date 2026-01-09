@@ -130,11 +130,13 @@ module.exports = async function chaosHandler(client, interaction) {
   }
 
   // ---------- BUTTONS ----------
-  if (!interaction.isButton()) return;
+ // ---------- BUTTONS ----------
+if (interaction.isButton()) {
+  await interaction.deferReply(); // 🔥 VERY IMPORTANT
 
   const userId = interaction.user.id;
 
-  // Earn coins
+  // ===== EARN COINS =====
   let reward = 0;
   let action = "";
 
@@ -156,18 +158,19 @@ module.exports = async function chaosHandler(client, interaction) {
   if (reward > 0) {
     addCoins(userId, reward);
 
-    await interaction.reply({
+    await interaction.editReply({
       content: `😈 ${interaction.user} won **${reward} chaos coins**!`
     });
 
-    return log(
+    log(
       client,
       "COINS EARNED",
       `${interaction.user.tag} earned ${reward} coins (${action})`
     );
+    return;
   }
 
-  // ---------- SHOP BUY ----------
+  // ===== SHOP BUY =====
   const buyMap = {
     buy_boost: "boost",
     buy_vip: "vip",
@@ -175,25 +178,23 @@ module.exports = async function chaosHandler(client, interaction) {
   };
 
   const itemKey = buyMap[interaction.customId];
-  if (!itemKey) return;
+  if (!itemKey) {
+    return interaction.editReply("❌ Unknown action.");
+  }
 
   const item = SHOP[itemKey];
 
   if (!removeCoins(userId, item.price)) {
-    return interaction.reply({
-      ephemeral: true,
-      content: "❌ Not enough chaos coins!"
-    });
+    return interaction.editReply("❌ Not enough chaos coins!");
   }
 
-  await interaction.reply({
-    content:
-      `✅ ${interaction.user} bought **${item.name}** for **${item.price} coins**`
-  });
+  await interaction.editReply(
+    `✅ ${interaction.user} bought **${item.name}** for **${item.price} coins**`
+  );
 
   log(
     client,
     "SHOP PURCHASE",
     `${interaction.user.tag} bought ${item.name} (${item.price})`
   );
-};
+}
