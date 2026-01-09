@@ -8,13 +8,21 @@ const fs = require("fs");
 const log = require("./logger");
 const { CHAOS_CHANNEL_ID } = require("./config");
 
+// ================= STORAGE =================
+const DATA_DIR = "./data";
 const COIN_FILE = "./data/chaosCoins.json";
 
-// ===== LOAD COINS =====
-let coins = {};
-if (fs.existsSync(COIN_FILE)) {
-  coins = JSON.parse(fs.readFileSync(COIN_FILE, "utf8"));
+// Ensure folder + file exist
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR);
 }
+
+if (!fs.existsSync(COIN_FILE)) {
+  fs.writeFileSync(COIN_FILE, JSON.stringify({}, null, 2));
+}
+
+// Load coins
+let coins = JSON.parse(fs.readFileSync(COIN_FILE, "utf8"));
 
 function saveCoins() {
   fs.writeFileSync(COIN_FILE, JSON.stringify(coins, null, 2));
@@ -24,34 +32,34 @@ function getCoins(id) {
   return coins[id] || 0;
 }
 
-function addCoins(id, amt) {
-  coins[id] = getCoins(id) + amt;
+function addCoins(id, amount) {
+  coins[id] = getCoins(id) + amount;
   saveCoins();
 }
 
-function removeCoins(id, amt) {
-  if (getCoins(id) < amt) return false;
-  coins[id] -= amt;
+function removeCoins(id, amount) {
+  if (getCoins(id) < amount) return false;
+  coins[id] -= amount;
   saveCoins();
   return true;
 }
 
-// ===== SHOP ITEMS =====
+// ================= SHOP =================
 const SHOP = {
   boost: { name: "⚡ XP Boost", price: 100 },
   vip: { name: "👑 VIP Pass", price: 250 },
   mystery: { name: "🎁 Mystery Box", price: 150 }
 };
 
-// ===== CHAOS HANDLER =====
+// ================= HANDLER =================
 module.exports = async function chaosHandler(client, interaction) {
-  // ===== SLASH COMMANDS =====
+  // ---------- SLASH COMMANDS ----------
   if (interaction.isChatInputCommand()) {
     // /chaos
     if (interaction.commandName === "chaos") {
       if (interaction.channelId !== CHAOS_CHANNEL_ID) {
         return interaction.reply({
-          content: "❌ Use this command only in #chaos-events",
+          content: "❌ Use this command only in **#chaos-events**",
           ephemeral: true
         });
       }
@@ -76,7 +84,11 @@ module.exports = async function chaosHandler(client, interaction) {
         components: [row]
       });
 
-      return log(client, "CHAOS PANEL", `${interaction.user.tag} opened panel`);
+      return log(
+        client,
+        "CHAOS PANEL",
+        `${interaction.user.tag} opened chaos panel`
+      );
     }
 
     // /profile
@@ -117,12 +129,12 @@ module.exports = async function chaosHandler(client, interaction) {
     }
   }
 
-  // ===== BUTTON HANDLER =====
+  // ---------- BUTTONS ----------
   if (!interaction.isButton()) return;
 
   const userId = interaction.user.id;
 
-  // ===== EARN COINS =====
+  // Earn coins
   let reward = 0;
   let action = "";
 
@@ -143,17 +155,19 @@ module.exports = async function chaosHandler(client, interaction) {
 
   if (reward > 0) {
     addCoins(userId, reward);
+
     await interaction.reply({
       content: `😈 ${interaction.user} won **${reward} chaos coins**!`
     });
+
     return log(
       client,
-      "CHAOS COINS",
+      "COINS EARNED",
       `${interaction.user.tag} earned ${reward} coins (${action})`
     );
   }
 
-  // ===== SHOP BUY =====
+  // ---------- SHOP BUY ----------
   const buyMap = {
     buy_boost: "boost",
     buy_vip: "vip",
