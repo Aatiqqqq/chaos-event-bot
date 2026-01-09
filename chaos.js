@@ -101,80 +101,80 @@ module.exports = async function chaosHandler(client, interaction) {
     }
   }
 
-// ---------- BUTTONS ----------
-if (!interaction.isButton()) return;
+  // ---------- BUTTONS ----------
+  if (!interaction.isButton()) return;
 
-await interaction.deferUpdate();
+  await interaction.deferUpdate();
 
-const userId = interaction.user.id;
+  const userId = interaction.user.id;
 
-// 🎁 LUCKY DROP
-if (interaction.customId === "chaos_lucky") {
-  const reward = Math.floor(Math.random() * 50) + 10;
-  addCoins(userId, reward);
-
-  await interaction.followUp({
-    content: `🎁 **Lucky Drop!** You won **${reward} chaos coins** 💰`,
-    ephemeral: true
-  });
-
-  return log(client, "LUCKY DROP", `${interaction.user.tag} +${reward}`);
-}
-
-// ⚔️ DUEL
-if (interaction.customId === "chaos_duel") {
-  const win = Math.random() > 0.5;
-
-  if (win) {
-    const reward = Math.floor(Math.random() * 40) + 20;
+  // 🎁 LUCKY DROP
+  if (interaction.customId === "chaos_lucky") {
+    const reward = Math.floor(Math.random() * 50) + 10;
     addCoins(userId, reward);
 
     await interaction.followUp({
-      content: `⚔️ **You won the duel!** Earned **${reward} chaos coins** 🏆`,
+      content: `🎁 **Lucky Drop!** You won **${reward} chaos coins** 💰`,
       ephemeral: true
     });
 
-    return log(client, "DUEL WIN", `${interaction.user.tag} +${reward}`);
-  } else {
-    await interaction.followUp({
-      content: `⚔️ **You lost the duel!** No coins this time 😈`,
-      ephemeral: true
-    });
-
-    return log(client, "DUEL LOSS", `${interaction.user.tag} lost duel`);
+    return log(client, "LUCKY DROP", `${interaction.user.tag} +${reward}`);
   }
-}
 
-// 🎯 GUESS GAME
-if (interaction.customId === "chaos_guess") {
-  const correct = Math.floor(Math.random() * 5) + 1;
-  const userGuess = Math.floor(Math.random() * 5) + 1;
+  // ⚔️ DUEL
+  if (interaction.customId === "chaos_duel") {
+    const win = Math.random() > 0.5;
 
-  if (userGuess === correct) {
-    const reward = 60;
-    addCoins(userId, reward);
+    if (win) {
+      const reward = Math.floor(Math.random() * 40) + 20;
+      addCoins(userId, reward);
 
-    await interaction.followUp({
-      content:
-        `🎯 **Perfect Guess!**\n` +
-        `Your guess: ${userGuess}\n` +
-        `Correct: ${correct}\n` +
-        `💰 You earned **${reward} chaos coins**`,
-      ephemeral: true
-    });
+      await interaction.followUp({
+        content: `⚔️ **You won the duel!** Earned **${reward} chaos coins** 🏆`,
+        ephemeral: true
+      });
 
-    return log(client, "GUESS WIN", `${interaction.user.tag} +${reward}`);
-  } else {
-    await interaction.followUp({
-      content:
-        `🎯 **Wrong Guess!**\n` +
-        `Your guess: ${userGuess}\n` +
-        `Correct: ${correct}\n` +
-        `❌ No coins this time`,
-      ephemeral: true
-    });
+      return log(client, "DUEL WIN", `${interaction.user.tag} +${reward}`);
+    } else {
+      await interaction.followUp({
+        content: `⚔️ **You lost the duel!** No coins this time 😈`,
+        ephemeral: true
+      });
 
-    return log(client, "GUESS FAIL", `${interaction.user.tag} failed guess`);
+      return log(client, "DUEL LOSS", `${interaction.user.tag} lost duel`);
+    }
   }
-}
-  
+
+  // 🎯 GUESS GAME
+  if (interaction.customId === "chaos_guess") {
+    const correct = Math.floor(Math.random() * 5) + 1;
+    const guess = Math.floor(Math.random() * 5) + 1;
+
+    if (guess === correct) {
+      const reward = 60;
+      addCoins(userId, reward);
+
+      await interaction.followUp({
+        content:
+          `🎯 **Perfect Guess!**\n` +
+          `Your guess: ${guess}\n` +
+          `Correct: ${correct}\n` +
+          `💰 You earned **${reward} chaos coins**`,
+        ephemeral: true
+      });
+
+      return log(client, "GUESS WIN", `${interaction.user.tag} +${reward}`);
+    } else {
+      await interaction.followUp({
+        content:
+          `🎯 **Wrong Guess!**\n` +
+          `Your guess: ${guess}\n` +
+          `Correct: ${correct}\n` +
+          `❌ No coins this time`,
+        ephemeral: true
+      });
+
+      return log(client, "GUESS FAIL", `${interaction.user.tag} failed guess`);
+    }
+  }
+};
