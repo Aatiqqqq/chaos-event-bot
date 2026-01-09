@@ -18,15 +18,13 @@ client.once("ready", async () => {
 
   const rest = new REST({ version: "10" }).setToken(TOKEN);
 
-  await rest.put(Routes.applicationCommands(CLIENT_ID), {
-    body: [
-      {
-        name: "chaos",
-        description: "Open chaos control panel"
-      }
-    ]
-  });
-
+await rest.put(Routes.applicationCommands(CLIENT_ID), {
+  body: [
+    { name: "chaos", description: "Open chaos panel" },
+    { name: "profile", description: "View your chaos profile" },
+    { name: "shop", description: "Open chaos shop" }
+  ]
+});
   console.log("✅ Slash command /chaos registered");
 });
 

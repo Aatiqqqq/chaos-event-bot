@@ -4,82 +4,182 @@ const {
   ButtonStyle
 } = require("discord.js");
 
+const fs = require("fs");
 const log = require("./logger");
 const { CHAOS_CHANNEL_ID } = require("./config");
 
-module.exports = async function chaosHandler(client, interaction) {
-  // Slash command
-  if (interaction.isChatInputCommand()) {
-    if (interaction.commandName !== "chaos") return;
+const COIN_FILE = "./data/chaosCoins.json";
 
-    if (interaction.channelId !== CHAOS_CHANNEL_ID) {
+// ===== LOAD COINS =====
+let coins = {};
+if (fs.existsSync(COIN_FILE)) {
+  coins = JSON.parse(fs.readFileSync(COIN_FILE, "utf8"));
+}
+
+function saveCoins() {
+  fs.writeFileSync(COIN_FILE, JSON.stringify(coins, null, 2));
+}
+
+function getCoins(id) {
+  return coins[id] || 0;
+}
+
+function addCoins(id, amt) {
+  coins[id] = getCoins(id) + amt;
+  saveCoins();
+}
+
+function removeCoins(id, amt) {
+  if (getCoins(id) < amt) return false;
+  coins[id] -= amt;
+  saveCoins();
+  return true;
+}
+
+// ===== SHOP ITEMS =====
+const SHOP = {
+  boost: { name: "⚡ XP Boost", price: 100 },
+  vip: { name: "👑 VIP Pass", price: 250 },
+  mystery: { name: "🎁 Mystery Box", price: 150 }
+};
+
+// ===== CHAOS HANDLER =====
+module.exports = async function chaosHandler(client, interaction) {
+  // ===== SLASH COMMANDS =====
+  if (interaction.isChatInputCommand()) {
+    // /chaos
+    if (interaction.commandName === "chaos") {
+      if (interaction.channelId !== CHAOS_CHANNEL_ID) {
+        return interaction.reply({
+          content: "❌ Use this command only in #chaos-events",
+          ephemeral: true
+        });
+      }
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("chaos_lucky")
+          .setLabel("🎁 Lucky Drop")
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId("chaos_duel")
+          .setLabel("⚔️ Duel")
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId("chaos_guess")
+          .setLabel("🎯 Guess")
+          .setStyle(ButtonStyle.Primary)
+      );
+
+      await interaction.reply({
+        content: "😈 **CHAOS PANEL**\nEarn chaos coins:",
+        components: [row]
+      });
+
+      return log(client, "CHAOS PANEL", `${interaction.user.tag} opened panel`);
+    }
+
+    // /profile
+    if (interaction.commandName === "profile") {
       return interaction.reply({
-        content: "❌ Use this command only in #chaos-events",
-        ephemeral: true
+        ephemeral: true,
+        content:
+          `🪙 **CHAOS PROFILE**\n\n` +
+          `👤 ${interaction.user.username}\n` +
+          `💰 Coins: **${getCoins(interaction.user.id)}**`
       });
     }
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("chaos_lucky")
-        .setLabel("🎁 Lucky Drop")
-        .setStyle(ButtonStyle.Success),
+    // /shop
+    if (interaction.commandName === "shop") {
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("buy_boost")
+          .setLabel("⚡ XP Boost (100)")
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId("buy_vip")
+          .setLabel("👑 VIP Pass (250)")
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId("buy_mystery")
+          .setLabel("🎁 Mystery Box (150)")
+          .setStyle(ButtonStyle.Secondary)
+      );
 
-      new ButtonBuilder()
-        .setCustomId("chaos_duel")
-        .setLabel("⚔️ Duel")
-        .setStyle(ButtonStyle.Danger),
-
-      new ButtonBuilder()
-        .setCustomId("chaos_guess")
-        .setLabel("🎯 Guess")
-        .setStyle(ButtonStyle.Primary)
-    );
-
-    await interaction.reply({
-      content: "😈 **CHAOS PANEL**\nChoose your fate:",
-      components: [row]
-    });
-
-    log(
-      client,
-      "CHAOS PANEL OPENED",
-      `${interaction.user.tag} opened chaos panel`
-    );
+      return interaction.reply({
+        ephemeral: true,
+        content:
+          `🛒 **CHAOS SHOP**\n\n` +
+          `💰 Your coins: **${getCoins(interaction.user.id)}**`,
+        components: [row]
+      });
+    }
   }
 
-  // BUTTONS
+  // ===== BUTTON HANDLER =====
   if (!interaction.isButton()) return;
 
+  const userId = interaction.user.id;
+
+  // ===== EARN COINS =====
+  let reward = 0;
+  let action = "";
+
   if (interaction.customId === "chaos_lucky") {
-    const reward = Math.floor(Math.random() * 100) + 1;
-
-    await interaction.reply({
-      content: `🎁 ${interaction.user} won **${reward} chaos coins**!`
-    });
-
-    log(
-      client,
-      "LUCKY DROP",
-      `${interaction.user.tag} won ${reward} coins`
-    );
+    reward = Math.floor(Math.random() * 50) + 10;
+    action = "Lucky Drop 🎁";
   }
 
   if (interaction.customId === "chaos_duel") {
-    await interaction.reply({
-      content: `⚔️ ${interaction.user} is looking for a duel...`
-    });
-
-    log(client, "DUEL STARTED", `${interaction.user.tag} started a duel`);
+    reward = Math.floor(Math.random() * 40) + 20;
+    action = "Duel ⚔️";
   }
 
   if (interaction.customId === "chaos_guess") {
-    const num = Math.floor(Math.random() * 5) + 1;
-
-    await interaction.reply({
-      content: `🎯 Guess a number (1–5)\n🤫 Secret: **${num}**`
-    });
-
-    log(client, "GUESS GAME", `${interaction.user.tag} started guess game`);
+    reward = Math.floor(Math.random() * 30) + 5;
+    action = "Guess 🎯";
   }
+
+  if (reward > 0) {
+    addCoins(userId, reward);
+    await interaction.reply({
+      content: `😈 ${interaction.user} won **${reward} chaos coins**!`
+    });
+    return log(
+      client,
+      "CHAOS COINS",
+      `${interaction.user.tag} earned ${reward} coins (${action})`
+    );
+  }
+
+  // ===== SHOP BUY =====
+  const buyMap = {
+    buy_boost: "boost",
+    buy_vip: "vip",
+    buy_mystery: "mystery"
+  };
+
+  const itemKey = buyMap[interaction.customId];
+  if (!itemKey) return;
+
+  const item = SHOP[itemKey];
+
+  if (!removeCoins(userId, item.price)) {
+    return interaction.reply({
+      ephemeral: true,
+      content: "❌ Not enough chaos coins!"
+    });
+  }
+
+  await interaction.reply({
+    content:
+      `✅ ${interaction.user} bought **${item.name}** for **${item.price} coins**`
+  });
+
+  log(
+    client,
+    "SHOP PURCHASE",
+    `${interaction.user.tag} bought ${item.name} (${item.price})`
+  );
 };
