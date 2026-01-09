@@ -4,53 +4,23 @@ const {
   ButtonStyle
 } = require("discord.js");
 
-const fs = require("fs");
-const path = require("path");
 const log = require("./logger");
 const { CHAOS_CHANNEL_ID } = require("./config");
 
-// ================= STORAGE =================
-const DATA_DIR = path.join(process.cwd(), "data");
-const COIN_FILE = path.join(DATA_DIR, "chaosCoins.json");
-
-// Ensure folder + file exist (ALWAYS safe)
-function ensureStorage() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-
-  if (!fs.existsSync(COIN_FILE)) {
-    fs.writeFileSync(COIN_FILE, JSON.stringify({}, null, 2));
-  }
-}
-
-// Load coins safely
-function loadCoins() {
-  ensureStorage();
-  return JSON.parse(fs.readFileSync(COIN_FILE, "utf8"));
-}
-
-// Save coins safely
-function saveCoins(coins) {
-  ensureStorage();
-  fs.writeFileSync(COIN_FILE, JSON.stringify(coins, null, 2));
-}
-
-let coins = loadCoins();
+// ================= IN-MEMORY COINS =================
+const coins = new Map();
 
 function getCoins(id) {
-  return coins[id] || 0;
+  return coins.get(id) || 0;
 }
 
 function addCoins(id, amount) {
-  coins[id] = getCoins(id) + amount;
-  saveCoins(coins);
+  coins.set(id, getCoins(id) + amount);
 }
 
 function removeCoins(id, amount) {
   if (getCoins(id) < amount) return false;
-  coins[id] -= amount;
-  saveCoins(coins);
+  coins.set(id, getCoins(id) - amount);
   return true;
 }
 
@@ -194,9 +164,5 @@ module.exports = async function chaosHandler(client, interaction) {
     ephemeral: true
   });
 
-  log(
-    client,
-    "SHOP PURCHASE",
-    `${interaction.user.tag} bought ${item.name}`
-  );
+  log(client, "SHOP PURCHASE", `${interaction.user.tag} bought ${item.name}`);
 };
