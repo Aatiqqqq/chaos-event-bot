@@ -131,8 +131,9 @@ module.exports = async function chaosHandler(client, interaction) {
 
   // ---------- BUTTONS ----------
  // ---------- BUTTONS ----------
+// ---------- BUTTONS ----------
 if (interaction.isButton()) {
-  await interaction.deferReply(); // 🔥 VERY IMPORTANT
+  await interaction.deferUpdate(); // ✅ correct for message buttons
 
   const userId = interaction.user.id;
 
@@ -158,8 +159,9 @@ if (interaction.isButton()) {
   if (reward > 0) {
     addCoins(userId, reward);
 
-    await interaction.editReply({
-      content: `😈 ${interaction.user} won **${reward} chaos coins**!`
+    await interaction.followUp({
+      content: `😈 ${interaction.user} won **${reward} chaos coins**!`,
+      ephemeral: true
     });
 
     log(
@@ -178,19 +180,21 @@ if (interaction.isButton()) {
   };
 
   const itemKey = buyMap[interaction.customId];
-  if (!itemKey) {
-    return interaction.editReply("❌ Unknown action.");
-  }
+  if (!itemKey) return;
 
   const item = SHOP[itemKey];
 
   if (!removeCoins(userId, item.price)) {
-    return interaction.editReply("❌ Not enough chaos coins!");
+    return interaction.followUp({
+      content: "❌ Not enough chaos coins!",
+      ephemeral: true
+    });
   }
 
-  await interaction.editReply(
-    `✅ ${interaction.user} bought **${item.name}** for **${item.price} coins**`
-  );
+  await interaction.followUp({
+    content: `✅ You bought **${item.name}** for **${item.price} coins**`,
+    ephemeral: true
+  });
 
   log(
     client,
